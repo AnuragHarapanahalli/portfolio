@@ -1,7 +1,5 @@
 # Architectural Portfolio with Render Cold-Start Warmer
 
-A modern, high-performance portfolio website inspired by the architectural drafting design language of [illoca.unseen.co](https://illoca.unseen.co/).
-
 Built with **Next.js 15 (App Router)**, **Tailwind CSS v4**, and deployed seamlessly to **Vercel**.
 
 ---
