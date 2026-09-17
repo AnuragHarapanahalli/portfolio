@@ -23,10 +23,16 @@ export function ThemeToggle({ className = '' }: { className?: string }) {
 
     if (nextTheme === 'dark') {
       document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
+      try {
+        sessionStorage.setItem('theme', 'dark');
+        localStorage.removeItem('theme');
+      } catch (_) {}
     } else {
       document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
+      try {
+        sessionStorage.setItem('theme', 'light');
+        localStorage.removeItem('theme');
+      } catch (_) {}
     }
 
     setTheme(nextTheme);
