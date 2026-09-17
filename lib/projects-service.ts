@@ -1,0 +1,138 @@
+import { Project } from '@/types/project';
+import defaultProjects from '@/data/projects.json';
+import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase';
+
+// In-memory cache / fallback for serverless execution
+let localProjectsCache: Project[] = [...(defaultProjects as Project[])];
+
+export async function getAllProjects(): Promise<Project[]> {
+  try {
+    if (isSupabaseConfigured()) {
+      const supabase = getSupabaseClient();
+      if (supabase) {
+        const { data, error } = await supabase
+          .from('projects')
+          .select('*')
+          .order('order', { ascending: true, nullsFirst: false });
+
+        if (!error && data && data.length > 0) {
+          return data.map((item: any) => ({
+            id: item.id,
+            title: item.title,
+            tagline: item.tagline || '',
+            description: item.description || '',
+            category: item.category || 'General',
+            tags: Array.isArray(item.tags) ? item.tags : (item.tags ? JSON.parse(item.tags) : []),
+            renderUrl: item.render_url || item.renderUrl || '',
+            healthEndpoint: item.health_endpoint || item.healthEndpoint || '',
+            githubUrl: item.github_url || item.githubUrl || '',
+            demoUrl: item.demo_url || item.demoUrl || '',
+            imageUrl: item.image_url || item.imageUrl || '',
+            featured: Boolean(item.featured),
+            order: item.order ?? 99,
+            createdAt: item.created_at || item.createdAt || new Date().toISOString(),
+          }));
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error fetching from Supabase, using local fallback:', err);
+  }
+
+  // Fallback to local data
+  return [...localProjectsCache].sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
+}
+
+export async function createProject(project: Omit<Project, 'id'> & { id?: string }): Promise<Project> {
+  const newProject: Project = {
+    ...project,
+    id: project.id || `proj-${Date.now()}`,
+    createdAt: new Date().toISOString(),
+    order: project.order ?? localProjectsCache.length + 1,
+  };
+
+  if (isSupabaseConfigured()) {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      const payload = {
+        id: newProject.id,
+        title: newProject.title,
+        tagline: newProject.tagline,
+        description: newProject.description,
+        category: newProject.category,
+        tags: newProject.tags,
+        render_url: newProject.renderUrl,
+        health_endpoint: newProject.healthEndpoint,
+        github_url: newProject.githubUrl,
+        demo_url: newProject.demoUrl,
+        image_url: newProject.imageUrl,
+        featured: newProject.featured,
+        order: newProject.order,
+        created_at: newProject.createdAt,
+      };
+
+      const { error } = await supabase.from('projects').insert(payload);
+      if (error) {
+        console.error('Supabase insert error:', error);
+        throw new Error(`Failed to save to Supabase: ${error.message}`);
+      }
+      return newProject;
+    }
+  }
+
+  // Update in-memory fallback
+  localProjectsCache.unshift(newProject);
+  return newProject;
+}
+
+export async function updateProject(id: string, updates: Partial<Project>): Promise<Project> {
+  if (isSupabaseConfigured()) {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      const payload: any = {};
+      if (updates.title !== undefined) payload.title = updates.title;
+      if (updates.tagline !== undefined) payload.tagline = updates.tagline;
+      if (updates.description !== undefined) payload.description = updates.description;
+      if (updates.category !== undefined) payload.category = updates.category;
+      if (updates.tags !== undefined) payload.tags = updates.tags;
+      if (updates.renderUrl !== undefined) payload.render_url = updates.renderUrl;
+      if (updates.healthEndpoint !== undefined) payload.health_endpoint = updates.healthEndpoint;
+      if (updates.githubUrl !== undefined) payload.github_url = updates.githubUrl;
+      if (updates.demoUrl !== undefined) payload.demo_url = updates.demoUrl;
+      if (updates.imageUrl !== undefined) payload.image_url = updates.imageUrl;
+      if (updates.featured !== undefined) payload.featured = updates.featured;
+      if (updates.order !== undefined) payload.order = updates.order;
+
+      const { error } = await supabase.from('projects').update(payload).eq('id', id);
+      if (error) {
+        console.error('Supabase update error:', error);
+        throw new Error(`Failed to update in Supabase: ${error.message}`);
+      }
+    }
+  }
+
+  const idx = localProjectsCache.findIndex((p) => p.id === id);
+  if (idx !== -1) {
+    localProjectsCache[idx] = { ...localProjectsCache[idx], ...updates };
+    return localProjectsCache[idx];
+  }
+
+  throw new Error('Project not found');
+}
+
+export async function deleteProject(id: string): Promise<boolean> {
+  if (isSupabaseConfigured()) {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      const { error } = await supabase.from('projects').delete().eq('id', id);
+      if (error) {
+        console.error('Supabase delete error:', error);
+        throw new Error(`Failed to delete from Supabase: ${error.message}`);
+      }
+    }
+  }
+
+  const prevLen = localProjectsCache.length;
+  localProjectsCache = localProjectsCache.filter((p) => p.id !== id);
+  return localProjectsCache.length < prevLen;
+}

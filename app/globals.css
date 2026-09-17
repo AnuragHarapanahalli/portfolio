@@ -1,0 +1,148 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-parchment-50: #fdfbf7;
+  --color-parchment-100: #f7f4ee;
+  --color-parchment-200: #ece5d8;
+  --color-parchment-300: #dfd0b3;
+  --color-parchment-400: #cbbba0;
+
+  --color-blueprint-50: #eef4ff;
+  --color-blueprint-400: #5282ff;
+  --color-blueprint-500: #3b60c5;
+  --color-blueprint-600: #2f4fa8;
+  --color-blueprint-700: #1d3370;
+  --color-blueprint-800: #283f7d;
+  --color-blueprint-900: #0b1941;
+
+  --color-terracotta-400: #f87171;
+  --color-terracotta-500: #e76051;
+  --color-terracotta-600: #ec633d;
+
+  --color-charcoal-900: #212121;
+  --color-charcoal-800: #2c2c2c;
+  --color-charcoal-700: #373737;
+  --color-charcoal-600: #414141;
+  --color-charcoal-500: #5b5b5b;
+  --color-charcoal-400: #8b8b8b;
+  --color-charcoal-300: #b0b0b0;
+
+  /* Dark theme slate tokens */
+  --color-dark-bg: #0c0e14;
+  --color-dark-card: #141722;
+
+  --font-architect: var(--font-caveat), cursive;
+  --font-display: var(--font-space-grotesk), sans-serif;
+  --font-mono: var(--font-geist-mono), monospace;
+  --font-sans: var(--font-geist-sans), sans-serif;
+}
+
+:root {
+  --background: #f7f4ee;
+  --foreground: #212121;
+  color-scheme: light;
+}
+
+.dark {
+  --background: #0c0e14;
+  --foreground: #f3f4f6;
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  overflow-x: hidden;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+::selection {
+  background: #3b60c5;
+  color: #ffffff;
+}
+
+/* Light Mode Architectural Grid */
+.bg-blueprint-grid {
+  background-size: 36px 36px;
+  background-image: 
+    linear-gradient(to right, rgba(91, 91, 91, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(91, 91, 91, 0.08) 1px, transparent 1px);
+}
+
+/* Dark Mode Blueprint Grid: Neon Cyan-Blue glow */
+.dark .bg-blueprint-grid {
+  background-image: 
+    linear-gradient(to right, rgba(82, 130, 255, 0.11) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(82, 130, 255, 0.11) 1px, transparent 1px);
+}
+
+
+
+/* Paper Box Shadows (Light) */
+.shadow-paper {
+  box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.1);
+}
+
+.shadow-paper-sm {
+  box-shadow: 2px 2px 2px rgba(0, 0, 0, 0.15);
+}
+
+.shadow-paper-lg {
+  box-shadow: 6px 6px 0px rgba(0, 0, 0, 0.1);
+}
+
+.shadow-paper-nav {
+  box-shadow: 4px -2px 0px rgba(0, 0, 0, 0.1);
+}
+
+.shadow-paper-inset {
+  box-shadow: inset 0 2px 3px rgba(80, 115, 208, 0.2), 4px 4px 0px rgba(0, 0, 0, 0.1);
+}
+
+/* Paper Box Shadows (Dark) */
+.dark .shadow-paper {
+  box-shadow: 4px 4px 0px rgba(0, 0, 0, 0.6);
+}
+
+.dark .shadow-paper-sm {
+  box-shadow: 2px 2px 2px rgba(0, 0, 0, 0.5);
+}
+
+.dark .shadow-paper-lg {
+  box-shadow: 6px 6px 0px rgba(0, 0, 0, 0.7);
+}
+
+.dark .shadow-paper-nav {
+  box-shadow: 4px -2px 0px rgba(0, 0, 0, 0.6);
+}
+
+.dark .shadow-paper-inset {
+  box-shadow: inset 0 2px 3px rgba(82, 130, 255, 0.2), 4px 4px 0px rgba(0, 0, 0, 0.6);
+}
+
+/* Text Stroke Outline Effect */
+.text-stroke-1 {
+  -webkit-text-stroke: 1.5px #212121;
+}
+
+.dark .text-stroke-1 {
+  -webkit-text-stroke: 1.5px #f3f4f6;
+}
+
+
+
+.underline-dotted-blueprint {
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='4' height='2' fill='none' viewBox='0 0 4 2'%3E%3Ccircle cx='1' cy='1' r='1' fill='%233b60c5'/%3E%3Ccircle cx='3' cy='1' r='1' fill='%233b60c5'/%3E%3C/svg%3E");
+  background-repeat: repeat-x;
+  background-size: 0.25rem 0.125rem;
+}
+
+/* Transitions */
+a, button {
+  transition-property: color, background-color, border-color, transform, box-shadow;
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
