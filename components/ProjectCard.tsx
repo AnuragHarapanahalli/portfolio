@@ -1,10 +1,19 @@
 'use client';
 
 import React from 'react';
-import { Project, ProjectHealthInfo } from '@/types/project';
+import { Project, ProjectHealthInfo, DeploymentType } from '@/types/project';
 import { RenderTelemetryBadge } from './RenderTelemetryBadge';
 import { StampButton } from './StampButton';
 import { ArrowUpRight, Cpu } from 'lucide-react';
+
+export function getDeploymentProvider(project: Project): DeploymentType {
+  if (project.deploymentType) return project.deploymentType;
+  if (project.renderUrl && project.renderUrl.includes('onrender.com')) return 'render';
+  if (project.demoUrl?.includes('vercel.app')) return 'vercel';
+  if (project.renderUrl) return 'render';
+  if (project.demoUrl) return 'live';
+  return 'static';
+}
 
 interface ProjectCardProps {
   project: Project;
@@ -22,6 +31,9 @@ export function ProjectCard({
   onHover,
 }: ProjectCardProps) {
   const sheetNumber = String(index + 1).padStart(2, '0');
+  const provider = getDeploymentProvider(project);
+  const primaryUrl = project.demoUrl || project.renderUrl;
+  const displayUrl = project.renderUrl || project.demoUrl;
 
   return (
     <article
@@ -40,16 +52,13 @@ export function ProjectCard({
           </span>
         </div>
 
-        {/* Live Render Telemetry Status */}
-        {project.renderUrl ? (
-          <RenderTelemetryBadge
-            status={health?.status || 'idle'}
-            latencyMs={health?.latencyMs}
-            onRefresh={onRefreshHealth}
-          />
-        ) : (
-          <span className="text-[10px] text-charcoal-400 dark:text-charcoal-500 font-mono">LOCAL / STATIC</span>
-        )}
+        {/* Live Infrastructure Telemetry Badge */}
+        <RenderTelemetryBadge
+          provider={provider}
+          status={health?.status || 'idle'}
+          latencyMs={health?.latencyMs}
+          onRefresh={onRefreshHealth}
+        />
       </div>
 
       <div className="p-5 sm:p-7 flex flex-col flex-1">
@@ -125,15 +134,19 @@ export function ProjectCard({
         {/* Action Buttons */}
         <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-charcoal-900/20 dark:border-white/10">
           <div className="flex items-center gap-2">
-            {project.demoUrl || project.renderUrl ? (
+            {primaryUrl ? (
               <StampButton
-                href={project.demoUrl || project.renderUrl}
+                href={primaryUrl}
                 external
                 size="sm"
-                variant={health?.status === 'online' ? 'blueprint' : 'terracotta'}
+                variant={provider === 'render' && health?.status !== 'online' ? 'terracotta' : 'blueprint'}
                 icon={<ArrowUpRight className="w-3.5 h-3.5" />}
               >
-                {health?.status === 'online' ? 'Launch App (Hot)' : 'Launch App (Render)'}
+                {provider === 'render'
+                  ? health?.status === 'online'
+                    ? 'Launch App (Hot)'
+                    : 'Launch App (Render)'
+                  : 'Launch Live App'}
               </StampButton>
             ) : null}
 
@@ -154,11 +167,11 @@ export function ProjectCard({
             )}
           </div>
 
-          {/* Render Ping Endpoint Monospace Info */}
-          {project.renderUrl && (
+          {/* Endpoint Monospace Info */}
+          {displayUrl && (
             <div className="hidden sm:block text-right">
               <span className="font-mono text-[10px] text-charcoal-400 dark:text-charcoal-500 block truncate max-w-[180px]">
-                {project.renderUrl.replace(/^https?:\/\//, '')}
+                {displayUrl.replace(/^https?:\/\//, '')}
               </span>
             </div>
           )}

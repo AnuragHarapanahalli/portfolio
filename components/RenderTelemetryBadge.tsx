@@ -1,12 +1,13 @@
 'use client';
 
 import React from 'react';
-import { ProjectHealthStatus } from '@/types/project';
-import { Activity, Radio, RefreshCw } from 'lucide-react';
+import { DeploymentType, ProjectHealthStatus } from '@/types/project';
+import { Activity, Radio, RefreshCw, Zap, Cloud, GitBranch } from 'lucide-react';
 
 interface RenderTelemetryBadgeProps {
   status?: ProjectHealthStatus;
   latencyMs?: number;
+  provider?: DeploymentType;
   onRefresh?: () => void;
   className?: string;
   compact?: boolean;
@@ -15,10 +16,96 @@ interface RenderTelemetryBadgeProps {
 export function RenderTelemetryBadge({
   status = 'idle',
   latencyMs,
+  provider = 'render',
   onRefresh,
   className = '',
   compact = false,
 }: RenderTelemetryBadgeProps) {
+  // If provider is Vercel, AWS, or Static, display clean cloud badges
+  if (provider === 'vercel') {
+    const isCompact = compact;
+    return (
+      <span
+        title="Deployed on Vercel Edge (Zero cold starts, instant response)"
+        className={`inline-flex items-center gap-1.5 font-mono rounded-[2px] border font-medium select-none bg-emerald-50/80 dark:bg-emerald-950/60 border-emerald-600/30 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-300 ${
+          isCompact ? 'px-2 py-0.5 text-[10px]' : 'px-2.5 py-1 text-xs shadow-paper-sm'
+        } ${className}`}
+      >
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+        <span className="font-semibold tracking-wider text-[10px] uppercase">VERCEL EDGE</span>
+        {!isCompact && (
+          <>
+            <span className="text-charcoal-400 dark:text-charcoal-500 text-[10px]">//</span>
+            <span className="text-[11px] font-medium opacity-90">Instant</span>
+          </>
+        )}
+      </span>
+    );
+  }
+
+  if (provider === 'live') {
+    const isCompact = compact;
+    return (
+      <span
+        title="Live Production Deployment"
+        className={`inline-flex items-center gap-1.5 font-mono rounded-[2px] border font-medium select-none bg-emerald-50/80 dark:bg-emerald-950/60 border-emerald-600/30 dark:border-emerald-500/30 text-emerald-800 dark:text-emerald-300 ${
+          isCompact ? 'px-2 py-0.5 text-[10px]' : 'px-2.5 py-1 text-xs shadow-paper-sm'
+        } ${className}`}
+      >
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+        <span className="font-semibold tracking-wider text-[10px] uppercase">LIVE APP</span>
+        {!isCompact && (
+          <>
+            <span className="text-charcoal-400 dark:text-charcoal-500 text-[10px]">//</span>
+            <span className="text-[11px] font-medium opacity-90">Online</span>
+          </>
+        )}
+      </span>
+    );
+  }
+
+  if (provider === 'aws') {
+    const isCompact = compact;
+    return (
+      <span
+        title="Deployed on Cloud Infrastructure"
+        className={`inline-flex items-center gap-1.5 font-mono rounded-[2px] border font-medium select-none bg-amber-50/80 dark:bg-amber-950/60 border-amber-600/30 dark:border-amber-500/30 text-amber-900 dark:text-amber-300 ${
+          isCompact ? 'px-2 py-0.5 text-[10px]' : 'px-2.5 py-1 text-xs shadow-paper-sm'
+        } ${className}`}
+      >
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+        <span className="font-semibold tracking-wider text-[10px] uppercase">AWS CLOUD</span>
+        {!isCompact && (
+          <>
+            <span className="text-charcoal-400 dark:text-charcoal-500 text-[10px]">//</span>
+            <span className="text-[11px] font-medium opacity-90">Active</span>
+          </>
+        )}
+      </span>
+    );
+  }
+
+  if (provider === 'static') {
+    const isCompact = compact;
+    return (
+      <span
+        title="Open Source Specification on GitHub"
+        className={`inline-flex items-center gap-1.5 font-mono rounded-[2px] border font-medium select-none bg-blueprint-50 dark:bg-blueprint-900/40 border-blueprint-500/30 text-blueprint-700 dark:text-blueprint-300 ${
+          isCompact ? 'px-2 py-0.5 text-[10px]' : 'px-2.5 py-1 text-xs shadow-paper-sm'
+        } ${className}`}
+      >
+        <span className="w-1.5 h-1.5 rounded-full bg-blueprint-500 shrink-0" />
+        <span className="font-semibold tracking-wider text-[10px] uppercase">REPOSITORY</span>
+        {!isCompact && (
+          <>
+            <span className="text-charcoal-400 dark:text-charcoal-500 text-[10px]">//</span>
+            <span className="text-[11px] font-medium opacity-90">Source Spec</span>
+          </>
+        )}
+      </span>
+    );
+  }
+
   const config = {
     online: {
       dotBg: 'bg-emerald-500',

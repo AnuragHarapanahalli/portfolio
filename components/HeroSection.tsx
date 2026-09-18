@@ -32,7 +32,7 @@ export function HeroSection({
         {/* Eyebrow / Technical Badge */}
         <div className="inline-flex items-center gap-2.5 px-3 py-1 bg-parchment-200/80 dark:bg-charcoal-800/80 border border-charcoal-900/20 dark:border-white/15 rounded-[2px] shadow-paper-sm mb-8 font-mono text-[11px] text-charcoal-700 dark:text-charcoal-300 transition-colors">
           <span className="w-2 h-2 rounded-full bg-blueprint-500 animate-pulse" />
-          <span className="font-semibold text-blueprint-600 dark:text-blueprint-400">RENDER COLD-START DAEMON</span>
+          <span className="font-semibold text-blueprint-600 dark:text-blueprint-400">CLOUD OBSERVABILITY & TELEMETRY</span>
           <span className="text-charcoal-400 dark:text-charcoal-500">//</span>
           <span>
             {stats.online}/{stats.total} SERVICES HOT
@@ -101,8 +101,8 @@ export function HeroSection({
             className="flex items-center gap-2 hover:text-blueprint-500 transition-colors cursor-pointer text-left"
           >
             <Radio className="w-3.5 h-3.5 text-blueprint-500 animate-spin" />
-            <span className="font-semibold text-charcoal-900 dark:text-white">Render Pre-warmer:</span>
-            <span>Services initialized in background. Click to inspect telemetry.</span>
+            <span className="font-semibold text-charcoal-900 dark:text-white">Cloud Telemetry:</span>
+            <span>Render backends pre-warmed & Vercel edge delivery active. Click to inspect telemetry.</span>
           </button>
           <div className="h-3 w-[1px] bg-charcoal-300 dark:bg-charcoal-700 hidden sm:block" />
           <button

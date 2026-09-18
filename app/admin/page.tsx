@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Project } from '@/types/project';
+import { Project, DeploymentType } from '@/types/project';
+import { getDeploymentProvider } from '@/components/ProjectCard';
 import { StampButton } from '@/components/StampButton';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import {
@@ -41,6 +42,7 @@ export default function AdminPage() {
     description: '',
     category: 'Full-Stack Web',
     tags: [],
+    deploymentType: 'render',
     renderUrl: '',
     healthEndpoint: '/health',
     githubUrl: '',
@@ -114,6 +116,7 @@ export default function AdminPage() {
       description: '',
       category: 'Full-Stack Web',
       tags: [],
+      deploymentType: 'render',
       renderUrl: '',
       healthEndpoint: '/health',
       githubUrl: '',
@@ -128,7 +131,10 @@ export default function AdminPage() {
   // Open Modal for Edit
   const handleOpenEdit = (project: Project) => {
     setEditingProject(project);
-    setFormData({ ...project });
+    setFormData({
+      ...project,
+      deploymentType: getDeploymentProvider(project),
+    });
     setTagsInput(project.tags ? project.tags.join(', ') : '');
     setIsModalOpen(true);
   };
@@ -398,6 +404,9 @@ export default function AdminPage() {
             <div className="space-y-4">
               {projects.map((p, idx) => {
                 const ping = pingStates[p.id];
+                const provider = getDeploymentProvider(p);
+                const primaryUrl = p.renderUrl || p.demoUrl;
+
                 return (
                   <div
                     key={p.id}
@@ -416,6 +425,9 @@ export default function AdminPage() {
                           <span className="px-2 py-0.5 bg-parchment-200 dark:bg-charcoal-800 border border-charcoal-900/10 dark:border-white/10 rounded-xs font-mono text-[10px] uppercase text-charcoal-700 dark:text-charcoal-300">
                             {p.category}
                           </span>
+                          <span className="px-1.5 py-0.2 bg-blueprint-50 dark:bg-blueprint-900/40 border border-blueprint-500/30 rounded-xs font-mono text-[9px] font-bold uppercase text-blueprint-700 dark:text-blueprint-300">
+                            {provider}
+                          </span>
                           {p.featured && (
                             <span className="px-1.5 py-0.2 bg-terracotta-600 text-white rounded-xs font-mono text-[9px] font-bold uppercase">
                               Featured
@@ -430,10 +442,10 @@ export default function AdminPage() {
                         )}
 
                         <div className="flex flex-wrap items-center gap-4 font-mono text-[11px] text-charcoal-500 dark:text-charcoal-400">
-                          {p.renderUrl && (
+                          {primaryUrl && (
                             <span className="flex items-center gap-1 text-blueprint-600 dark:text-blueprint-400 truncate max-w-xs">
                               <Radio className="w-3 h-3" />
-                              <span className="truncate">{p.renderUrl}</span>
+                              <span className="truncate">{primaryUrl}</span>
                             </span>
                           )}
                           {p.githubUrl && (
@@ -447,7 +459,7 @@ export default function AdminPage() {
 
                     {/* Actions and Render Ping Test */}
                     <div className="flex items-center gap-3 w-full md:w-auto justify-end border-t md:border-t-0 pt-3 md:pt-0 border-charcoal-900/10 dark:border-white/10">
-                      {p.renderUrl && (
+                      {provider === 'render' && primaryUrl && (
                         <button
                           onClick={() => handleTestPing(p)}
                           className="px-2.5 py-1.5 bg-parchment-200 dark:bg-charcoal-800 border border-charcoal-900/20 dark:border-white/15 rounded-[2px] font-mono text-xs hover:bg-parchment-300 dark:hover:bg-charcoal-700 transition-colors flex items-center gap-1.5 text-charcoal-800 dark:text-charcoal-200 cursor-pointer"
@@ -567,20 +579,61 @@ export default function AdminPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-charcoal-700 dark:text-charcoal-300 mb-1 font-semibold">
-                      Render Service URL (Wakes up on visit!)
+                      Hosting / Deployment Platform
                     </label>
-                    <input
-                      type="url"
-                      placeholder="https://my-app.onrender.com"
-                      value={formData.renderUrl || ''}
-                      onChange={(e) => setFormData({ ...formData, renderUrl: e.target.value })}
-                      className="w-full px-3 py-2 bg-parchment-100 dark:bg-charcoal-800 border border-charcoal-900/30 dark:border-white/15 rounded-[2px] text-charcoal-900 dark:text-white focus:outline-none focus:border-blueprint-500 shadow-paper-sm"
-                    />
+                    <select
+                      value={formData.deploymentType || 'render'}
+                      onChange={(e) => {
+                        const val = e.target.value as DeploymentType;
+                        setFormData({ ...formData, deploymentType: val });
+                      }}
+                      className="w-full px-3 py-2 bg-parchment-100 dark:bg-charcoal-800 border border-charcoal-900/30 dark:border-white/15 rounded-[2px] text-charcoal-900 dark:text-white focus:outline-none focus:border-blueprint-500 shadow-paper-sm font-mono text-xs cursor-pointer"
+                    >
+                      <option value="render">Render (Container Backend - Pre-Warmed)</option>
+                      <option value="vercel">Vercel (Serverless / Instant Edge)</option>
+                      <option value="aws">AWS Cloud Infrastructure</option>
+                      <option value="live">Live Web App (Custom Host)</option>
+                      <option value="static">Open Source Repo Only (No Live Host)</option>
+                    </select>
                   </div>
 
                   <div>
                     <label className="block text-charcoal-700 dark:text-charcoal-300 mb-1 font-semibold">
-                      Health Check Endpoint
+                      {formData.deploymentType === 'render'
+                        ? 'Render Service URL (Auto Pre-Warmed)'
+                        : 'Live Demo / Production URL'}
+                    </label>
+                    <input
+                      type="url"
+                      placeholder={
+                        formData.deploymentType === 'render'
+                          ? 'https://my-app.onrender.com'
+                          : formData.deploymentType === 'vercel'
+                          ? 'https://my-app.vercel.app'
+                          : 'https://my-project-live.com'
+                      }
+                      value={
+                        formData.deploymentType === 'render'
+                          ? formData.renderUrl || formData.demoUrl || ''
+                          : formData.demoUrl || formData.renderUrl || ''
+                      }
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (formData.deploymentType === 'render') {
+                          setFormData({ ...formData, renderUrl: val, demoUrl: val });
+                        } else {
+                          setFormData({ ...formData, demoUrl: val, renderUrl: '' });
+                        }
+                      }}
+                      className="w-full px-3 py-2 bg-parchment-100 dark:bg-charcoal-800 border border-charcoal-900/30 dark:border-white/15 rounded-[2px] text-charcoal-900 dark:text-white focus:outline-none focus:border-blueprint-500 shadow-paper-sm"
+                    />
+                  </div>
+                </div>
+
+                {formData.deploymentType === 'render' && (
+                  <div>
+                    <label className="block text-charcoal-700 dark:text-charcoal-300 mb-1 font-semibold">
+                      Render Health Check Endpoint
                     </label>
                     <input
                       type="text"
@@ -590,7 +643,7 @@ export default function AdminPage() {
                       className="w-full px-3 py-2 bg-parchment-100 dark:bg-charcoal-800 border border-charcoal-900/30 dark:border-white/15 rounded-[2px] text-charcoal-900 dark:text-white focus:outline-none focus:border-blueprint-500 shadow-paper-sm"
                     />
                   </div>
-                </div>
+                )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>

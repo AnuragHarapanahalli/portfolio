@@ -48,7 +48,7 @@ export function ProjectsSection({
             Selected Works & Architecture
           </h2>
           <p className="mt-2 font-mono text-xs sm:text-sm text-charcoal-600 dark:text-charcoal-400 max-w-xl">
-            Live systems hosted on Render. Hovering or opening any sheet initiates automated cold-start pre-warming.
+            Distributed systems, cloud microservices, and serverless applications across Render, Vercel & Cloud.
           </p>
         </div>
 

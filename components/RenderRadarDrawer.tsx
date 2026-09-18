@@ -3,6 +3,7 @@
 import React from 'react';
 import { Project, ProjectHealthInfo } from '@/types/project';
 import { RenderTelemetryBadge } from './RenderTelemetryBadge';
+import { getDeploymentProvider } from './ProjectCard';
 import { ChevronUp, ChevronDown, RefreshCw, Radio, X } from 'lucide-react';
 
 interface RenderRadarDrawerProps {
@@ -24,14 +25,19 @@ export function RenderRadarDrawer({
   setIsOpen,
   stats,
 }: RenderRadarDrawerProps) {
-  const renderProjects = projects.filter((p) => Boolean(p.renderUrl));
   const onlineCount = stats?.online ?? 0;
   const warmingCount = stats?.warming ?? 0;
+  const renderTotal = stats?.total ?? 0;
+
+  // Filter projects with any deployment or repository spec
+  const displayProjects = projects.filter(
+    (p) => Boolean(p.renderUrl || p.demoUrl || p.githubUrl)
+  );
 
   return (
     <aside
       id="telemetry"
-      aria-label="Render Service Telemetry Radar"
+      aria-label="Multi-Cloud Observability & Infrastructure Radar"
       className="fixed bottom-4 right-4 z-40 max-w-sm w-[92vw] sm:w-96 font-mono text-xs select-none"
     >
       <div
@@ -51,26 +57,32 @@ export function RenderRadarDrawer({
               }`}
             />
             <span className="font-bold text-charcoal-900 dark:text-white tracking-tight">
-              RENDER RADAR
+              INFRASTRUCTURE RADAR
             </span>
             <span className="text-charcoal-400">//</span>
             <span className="text-[10px] px-1.5 py-0.2 rounded-xs bg-blueprint-500 text-white font-semibold">
-              {onlineCount}/{renderProjects.length} HOT
+              {warmingCount > 0
+                ? `${warmingCount} WARMING`
+                : renderTotal > 0
+                ? `${onlineCount}/${renderTotal} HOT`
+                : 'ACTIVE'}
             </span>
           </div>
 
           <div className="flex items-center gap-2">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onWarmAll();
-              }}
-              disabled={isWarmingAll}
-              className="p-1 hover:bg-charcoal-900/10 dark:hover:bg-white/10 rounded text-charcoal-700 dark:text-charcoal-300 hover:text-blueprint-600 transition-colors cursor-pointer"
-              title="Force Warm All Services"
-            >
-              <RefreshCw className={`w-3 h-3 ${isWarmingAll ? 'animate-spin' : ''}`} />
-            </button>
+            {renderTotal > 0 && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onWarmAll();
+                }}
+                disabled={isWarmingAll}
+                className="p-1 hover:bg-charcoal-900/10 dark:hover:bg-white/10 rounded text-charcoal-700 dark:text-charcoal-300 hover:text-blueprint-600 transition-colors cursor-pointer"
+                title="Force Re-ping Render Backend Containers"
+              >
+                <RefreshCw className={`w-3 h-3 ${isWarmingAll ? 'animate-spin' : ''}`} />
+              </button>
+            )}
             <span className="text-charcoal-500 dark:text-charcoal-400">
               {isOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
             </span>
@@ -81,7 +93,7 @@ export function RenderRadarDrawer({
         {isOpen && (
           <div className="p-3 bg-parchment-50 dark:bg-charcoal-900 flex flex-col gap-2.5 max-h-72 overflow-y-auto">
             <div className="text-[11px] text-charcoal-600 dark:text-charcoal-400 leading-snug border-b border-dashed border-charcoal-900/15 dark:border-white/10 pb-2 flex items-center justify-between">
-              <span>Free-tier Render instances wake up automatically upon visit.</span>
+              <span>Render backends auto-warmed; Vercel & edge instances monitored.</span>
               <button
                 onClick={() => setIsOpen(false)}
                 className="text-charcoal-400 hover:text-charcoal-900 dark:hover:text-white p-0.5 ml-2 cursor-pointer"
@@ -92,24 +104,30 @@ export function RenderRadarDrawer({
             </div>
 
             <div className="flex flex-col gap-1.5">
-              {renderProjects.map((p) => {
+              {displayProjects.map((p) => {
                 const health = healthMap[p.id];
+                const provider = getDeploymentProvider(p);
+                const displayHost = (p.renderUrl || p.demoUrl || p.githubUrl || '')
+                  .replace(/^https?:\/\//, '')
+                  .replace(/\/$/, '');
+
                 return (
                   <div
                     key={p.id}
-                    className="p-2 rounded-xs bg-parchment-100 dark:bg-charcoal-800 border border-charcoal-900/15 dark:border-white/10 flex items-center justify-between"
+                    className="p-2 rounded-xs bg-parchment-100 dark:bg-charcoal-800 border border-charcoal-900/15 dark:border-white/10 flex items-center justify-between gap-2"
                   >
-                    <div className="flex flex-col min-w-0 pr-2">
+                    <div className="flex flex-col min-w-0 pr-1">
                       <span className="font-bold text-charcoal-900 dark:text-white truncate text-[11px]">
                         {p.title}
                       </span>
                       <span className="text-[9px] text-charcoal-500 dark:text-charcoal-400 truncate">
-                        {p.renderUrl.replace(/^https?:\/\//, '')}
+                        {displayHost}
                       </span>
                     </div>
 
                     <div className="shrink-0">
                       <RenderTelemetryBadge
+                        provider={provider}
                         status={health?.status || 'idle'}
                         latencyMs={health?.latencyMs}
                         compact
@@ -120,16 +138,18 @@ export function RenderRadarDrawer({
               })}
             </div>
 
-            <div className="pt-2 border-t border-dashed border-charcoal-900/15 dark:border-white/10 flex items-center justify-between text-[10px] text-charcoal-500 dark:text-charcoal-400">
-              <span>Edge Pre-Warmer Active</span>
-              <button
-                onClick={onWarmAll}
-                disabled={isWarmingAll}
-                className="text-blueprint-600 dark:text-blueprint-400 hover:underline font-bold cursor-pointer"
-              >
-                {isWarmingAll ? 'Pinging all...' : 'Wake all now'}
-              </button>
-            </div>
+            {renderTotal > 0 && (
+              <div className="pt-2 border-t border-dashed border-charcoal-900/15 dark:border-white/10 flex items-center justify-between text-[10px] text-charcoal-500 dark:text-charcoal-400">
+                <span>Edge Pre-Warmer Active</span>
+                <button
+                  onClick={onWarmAll}
+                  disabled={isWarmingAll}
+                  className="text-blueprint-600 dark:text-blueprint-400 hover:underline font-bold cursor-pointer"
+                >
+                  {isWarmingAll ? 'Pinging all...' : 'Wake all now'}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

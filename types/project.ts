@@ -1,3 +1,5 @@
+export type DeploymentType = 'render' | 'vercel' | 'aws' | 'live' | 'static';
+
 export interface Project {
   id: string;
   title: string;
@@ -5,7 +7,8 @@ export interface Project {
   description: string;
   category: string;
   tags: string[];
-  renderUrl: string;
+  renderUrl?: string;
+  deploymentType?: DeploymentType;
   healthEndpoint?: string;
   githubUrl?: string;
   demoUrl?: string;

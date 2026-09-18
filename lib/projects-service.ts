@@ -43,6 +43,15 @@ export async function getAllProjects(): Promise<Project[]> {
   return [...localProjectsCache].sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
 }
 
+function isTableMissingError(error: any): boolean {
+  return (
+    error?.code === 'PGRST205' ||
+    error?.code === '42P01' ||
+    String(error?.message || '').toLowerCase().includes('schema cache') ||
+    String(error?.message || '').toLowerCase().includes('does not exist')
+  );
+}
+
 export async function createProject(project: Omit<Project, 'id'> & { id?: string }): Promise<Project> {
   const newProject: Project = {
     ...project,
@@ -73,10 +82,15 @@ export async function createProject(project: Omit<Project, 'id'> & { id?: string
 
       const { error } = await supabase.from('projects').insert(payload);
       if (error) {
-        console.error('Supabase insert error:', error);
-        throw new Error(`Failed to save to Supabase: ${error.message}`);
+        console.warn('Supabase insert warning:', error.message);
+        if (!isTableMissingError(error)) {
+          throw new Error(`Failed to save to Supabase: ${error.message}`);
+        }
+      } else {
+        // Also keep local cache in sync
+        localProjectsCache.unshift(newProject);
+        return newProject;
       }
-      return newProject;
     }
   }
 
@@ -105,8 +119,10 @@ export async function updateProject(id: string, updates: Partial<Project>): Prom
 
       const { error } = await supabase.from('projects').update(payload).eq('id', id);
       if (error) {
-        console.error('Supabase update error:', error);
-        throw new Error(`Failed to update in Supabase: ${error.message}`);
+        console.warn('Supabase update warning:', error.message);
+        if (!isTableMissingError(error)) {
+          throw new Error(`Failed to update in Supabase: ${error.message}`);
+        }
       }
     }
   }
@@ -126,8 +142,10 @@ export async function deleteProject(id: string): Promise<boolean> {
     if (supabase) {
       const { error } = await supabase.from('projects').delete().eq('id', id);
       if (error) {
-        console.error('Supabase delete error:', error);
-        throw new Error(`Failed to delete from Supabase: ${error.message}`);
+        console.warn('Supabase delete warning:', error.message);
+        if (!isTableMissingError(error)) {
+          throw new Error(`Failed to delete from Supabase: ${error.message}`);
+        }
       }
     }
   }
