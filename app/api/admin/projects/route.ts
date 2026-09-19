@@ -3,6 +3,7 @@ import {
   getAllProjects,
   createProject,
   updateProject,
+  updateProjectOrder,
   deleteProject,
 } from '@/lib/projects-service';
 import { isSupabaseConfigured } from '@/lib/supabase';
@@ -42,6 +43,7 @@ export async function POST(request: NextRequest) {
       description: data.description || '',
       category: data.category || 'General',
       tags: Array.isArray(data.tags) ? data.tags : [],
+      deploymentType: data.deploymentType,
       renderUrl: data.renderUrl || '',
       healthEndpoint: data.healthEndpoint || '/health',
       githubUrl: data.githubUrl || '',
@@ -68,10 +70,21 @@ export async function PUT(request: NextRequest) {
 
   try {
     const data = await request.json();
+
+    // Check for sequence reorder request
+    if (data.orderedIds && Array.isArray(data.orderedIds)) {
+      const updatedList = await updateProjectOrder(data.orderedIds);
+      return NextResponse.json({
+        success: true,
+        projects: updatedList,
+        storageType: isSupabaseConfigured() ? 'supabase' : 'local',
+      });
+    }
+
     const { id, ...updates } = data;
 
     if (!id) {
-      return NextResponse.json({ error: 'Project ID is required' }, { status: 400 });
+      return NextResponse.json({ error: 'Project ID or orderedIds is required' }, { status: 400 });
     }
 
     const updated = await updateProject(id, updates);

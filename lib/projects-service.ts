@@ -3,7 +3,31 @@ import defaultProjects from '@/data/projects.json';
 import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase';
 
 // In-memory cache / fallback for serverless execution
-let localProjectsCache: Project[] = [...(defaultProjects as Project[])];
+let localProjectsCache: Project[] = [...(defaultProjects as Project[])].sort(
+  (a, b) => (a.order ?? 99) - (b.order ?? 99)
+);
+
+function syncLocalFile() {
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const filePath = path.join(process.cwd(), 'data', 'projects.json');
+    if (fs.existsSync(filePath)) {
+      fs.writeFileSync(filePath, JSON.stringify(localProjectsCache, null, 2), 'utf-8');
+    }
+  } catch {
+    // Ignore in read-only / serverless runtime
+  }
+}
+
+function isTableMissingError(error: any): boolean {
+  return (
+    error?.code === 'PGRST205' ||
+    error?.code === '42P01' ||
+    String(error?.message || '').toLowerCase().includes('schema cache') ||
+    String(error?.message || '').toLowerCase().includes('does not exist')
+  );
+}
 
 export async function getAllProjects(): Promise<Project[]> {
   try {
@@ -23,6 +47,7 @@ export async function getAllProjects(): Promise<Project[]> {
             description: item.description || '',
             category: item.category || 'General',
             tags: Array.isArray(item.tags) ? item.tags : (item.tags ? JSON.parse(item.tags) : []),
+            deploymentType: item.deployment_type || item.deploymentType,
             renderUrl: item.render_url || item.renderUrl || '',
             healthEndpoint: item.health_endpoint || item.healthEndpoint || '',
             githubUrl: item.github_url || item.githubUrl || '',
@@ -43,15 +68,6 @@ export async function getAllProjects(): Promise<Project[]> {
   return [...localProjectsCache].sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
 }
 
-function isTableMissingError(error: any): boolean {
-  return (
-    error?.code === 'PGRST205' ||
-    error?.code === '42P01' ||
-    String(error?.message || '').toLowerCase().includes('schema cache') ||
-    String(error?.message || '').toLowerCase().includes('does not exist')
-  );
-}
-
 export async function createProject(project: Omit<Project, 'id'> & { id?: string }): Promise<Project> {
   const newProject: Project = {
     ...project,
@@ -70,6 +86,7 @@ export async function createProject(project: Omit<Project, 'id'> & { id?: string
         description: newProject.description,
         category: newProject.category,
         tags: newProject.tags,
+        deployment_type: newProject.deploymentType,
         render_url: newProject.renderUrl,
         health_endpoint: newProject.healthEndpoint,
         github_url: newProject.githubUrl,
@@ -87,15 +104,18 @@ export async function createProject(project: Omit<Project, 'id'> & { id?: string
           throw new Error(`Failed to save to Supabase: ${error.message}`);
         }
       } else {
-        // Also keep local cache in sync
-        localProjectsCache.unshift(newProject);
+        localProjectsCache.push(newProject);
+        localProjectsCache.sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
+        syncLocalFile();
         return newProject;
       }
     }
   }
 
   // Update in-memory fallback
-  localProjectsCache.unshift(newProject);
+  localProjectsCache.push(newProject);
+  localProjectsCache.sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
+  syncLocalFile();
   return newProject;
 }
 
@@ -109,6 +129,7 @@ export async function updateProject(id: string, updates: Partial<Project>): Prom
       if (updates.description !== undefined) payload.description = updates.description;
       if (updates.category !== undefined) payload.category = updates.category;
       if (updates.tags !== undefined) payload.tags = updates.tags;
+      if (updates.deploymentType !== undefined) payload.deployment_type = updates.deploymentType;
       if (updates.renderUrl !== undefined) payload.render_url = updates.renderUrl;
       if (updates.healthEndpoint !== undefined) payload.health_endpoint = updates.healthEndpoint;
       if (updates.githubUrl !== undefined) payload.github_url = updates.githubUrl;
@@ -130,10 +151,44 @@ export async function updateProject(id: string, updates: Partial<Project>): Prom
   const idx = localProjectsCache.findIndex((p) => p.id === id);
   if (idx !== -1) {
     localProjectsCache[idx] = { ...localProjectsCache[idx], ...updates };
+    if (updates.order !== undefined) {
+      localProjectsCache.sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
+    }
+    syncLocalFile();
     return localProjectsCache[idx];
   }
 
   throw new Error('Project not found');
+}
+
+export async function updateProjectOrder(orderedIds: string[]): Promise<Project[]> {
+  // Update in-memory cache with new sequence index
+  orderedIds.forEach((id, index) => {
+    const proj = localProjectsCache.find((p) => p.id === id);
+    if (proj) {
+      proj.order = index + 1;
+    }
+  });
+
+  localProjectsCache.sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
+
+  // Sync with Supabase if configured
+  if (isSupabaseConfigured()) {
+    const supabase = getSupabaseClient();
+    if (supabase) {
+      try {
+        const updatePromises = orderedIds.map((id, index) =>
+          supabase.from('projects').update({ order: index + 1 }).eq('id', id)
+        );
+        await Promise.allSettled(updatePromises);
+      } catch (err) {
+        console.warn('Failed to update project sequence in Supabase:', err);
+      }
+    }
+  }
+
+  syncLocalFile();
+  return [...localProjectsCache];
 }
 
 export async function deleteProject(id: string): Promise<boolean> {
@@ -152,5 +207,6 @@ export async function deleteProject(id: string): Promise<boolean> {
 
   const prevLen = localProjectsCache.length;
   localProjectsCache = localProjectsCache.filter((p) => p.id !== id);
+  syncLocalFile();
   return localProjectsCache.length < prevLen;
 }

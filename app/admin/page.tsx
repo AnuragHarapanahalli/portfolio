@@ -17,6 +17,10 @@ import {
   Database,
   XCircle,
   Radio,
+  ChevronUp,
+  ChevronDown,
+  GripVertical,
+  CheckCircle2,
 } from 'lucide-react';
 
 export default function AdminPage() {
@@ -29,6 +33,10 @@ export default function AdminPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [storageType, setStorageType] = useState<'supabase' | 'local'>('local');
   const [fetchingProjects, setFetchingProjects] = useState(false);
+  const [isReordering, setIsReordering] = useState(false);
+  const [reorderMessage, setReorderMessage] = useState('');
+  const [draggedIdx, setDraggedIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
   // Test ping states per project
   const [pingStates, setPingStates] = useState<Record<string, { status: string; latency?: number }>>({});
@@ -49,6 +57,7 @@ export default function AdminPage() {
     demoUrl: '',
     imageUrl: '',
     featured: false,
+    order: 1,
   });
   const [tagsInput, setTagsInput] = useState('');
   const [saving, setSaving] = useState(false);
@@ -60,7 +69,8 @@ export default function AdminPage() {
       const res = await fetch('/api/admin/projects');
       const data = await res.json();
       if (data.projects) {
-        setProjects(data.projects);
+        const sorted = [...data.projects].sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
+        setProjects(sorted);
         setStorageType(data.storageType || 'local');
       }
     } catch (err) {
@@ -107,6 +117,76 @@ export default function AdminPage() {
     setPasscode('');
   };
 
+  // Reorder projects and persist sequence
+  const handleReorder = async (newProjects: Project[]) => {
+    const updated = newProjects.map((p, idx) => ({ ...p, order: idx + 1 }));
+    setProjects(updated);
+    setIsReordering(true);
+
+    try {
+      const orderedIds = updated.map((p) => p.id);
+      const res = await fetch('/api/admin/projects', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderedIds }),
+      });
+      if (res.ok) {
+        setReorderMessage('Display sequence saved');
+        setTimeout(() => setReorderMessage(''), 3000);
+      }
+    } catch (err) {
+      console.error('Failed to save project sequence:', err);
+    } finally {
+      setIsReordering(false);
+    }
+  };
+
+  const handleMoveUp = (index: number) => {
+    if (index <= 0) return;
+    const next = [...projects];
+    const temp = next[index];
+    next[index] = next[index - 1];
+    next[index - 1] = temp;
+    handleReorder(next);
+  };
+
+  const handleMoveDown = (index: number) => {
+    if (index >= projects.length - 1) return;
+    const next = [...projects];
+    const temp = next[index];
+    next[index] = next[index + 1];
+    next[index + 1] = temp;
+    handleReorder(next);
+  };
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIdx(index);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    if (draggedIdx === null || draggedIdx === index) return;
+    setDragOverIdx(index);
+  };
+
+  const handleDrop = (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    if (draggedIdx === null || draggedIdx === targetIndex) {
+      setDraggedIdx(null);
+      setDragOverIdx(null);
+      return;
+    }
+
+    const next = [...projects];
+    const [movedItem] = next.splice(draggedIdx, 1);
+    next.splice(targetIndex, 0, movedItem);
+
+    setDraggedIdx(null);
+    setDragOverIdx(null);
+    handleReorder(next);
+  };
+
   // Open Modal for Add
   const handleOpenAdd = () => {
     setEditingProject(null);
@@ -123,6 +203,7 @@ export default function AdminPage() {
       demoUrl: '',
       imageUrl: '',
       featured: false,
+      order: projects.length + 1,
     });
     setTagsInput('');
     setIsModalOpen(true);
@@ -134,6 +215,7 @@ export default function AdminPage() {
     setFormData({
       ...project,
       deploymentType: getDeploymentProvider(project),
+      order: project.order ?? 1,
     });
     setTagsInput(project.tags ? project.tags.join(', ') : '');
     setIsModalOpen(true);
@@ -153,6 +235,7 @@ export default function AdminPage() {
     const payload = {
       ...formData,
       tags: parsedTags,
+      order: formData.order ?? (editingProject?.order ?? projects.length + 1),
     };
 
     try {
@@ -402,19 +485,80 @@ export default function AdminPage() {
 
             {/* Projects Table / List */}
             <div className="space-y-4">
+              {/* Sequence Status & Tip */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1 font-mono text-xs text-charcoal-600 dark:text-charcoal-400">
+                <div className="flex items-center gap-2">
+                  <GripVertical className="w-3.5 h-3.5 text-blueprint-500 shrink-0" />
+                  <span>Display Sequence: Drag cards or use ↑ / ↓ arrows to rearrange order on portfolio.</span>
+                  {isReordering && <RefreshCw className="w-3 h-3 animate-spin text-blueprint-600 dark:text-blueprint-400 shrink-0" />}
+                </div>
+                {reorderMessage && (
+                  <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-semibold bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-xs border border-emerald-300 dark:border-emerald-700 text-[11px] shrink-0">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>{reorderMessage}</span>
+                  </div>
+                )}
+              </div>
+
               {projects.map((p, idx) => {
                 const ping = pingStates[p.id];
                 const provider = getDeploymentProvider(p);
                 const primaryUrl = p.renderUrl || p.demoUrl;
+                const isDragOver = dragOverIdx === idx;
+                const isDragging = draggedIdx === idx;
 
                 return (
                   <div
                     key={p.id}
-                    className="bg-parchment-50 dark:bg-charcoal-900 border border-charcoal-900/25 dark:border-white/15 rounded-[3px] shadow-paper p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition-colors"
+                    draggable
+                    onDragStart={(e) => handleDragStart(e, idx)}
+                    onDragOver={(e) => handleDragOver(e, idx)}
+                    onDrop={(e) => handleDrop(e, idx)}
+                    onDragEnd={() => {
+                      setDraggedIdx(null);
+                      setDragOverIdx(null);
+                    }}
+                    className={`bg-parchment-50 dark:bg-charcoal-900 border rounded-[3px] shadow-paper p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 transition-all duration-200 ${
+                      isDragOver
+                        ? 'border-blueprint-500 ring-2 ring-blueprint-500/40 scale-[1.01]'
+                        : 'border-charcoal-900/25 dark:border-white/15'
+                    } ${isDragging ? 'opacity-40' : ''}`}
                   >
                     <div className="flex items-start gap-4 flex-1">
-                      <div className="w-10 h-10 rounded-[2px] bg-parchment-200 dark:bg-charcoal-800 border border-charcoal-900/20 dark:border-white/10 flex items-center justify-center font-mono font-bold text-xs text-blueprint-600 dark:text-blueprint-400 shrink-0">
-                        #{String(idx + 1).padStart(2, '0')}
+                      <div className="flex items-center gap-2 shrink-0">
+                        {/* Stepper buttons */}
+                        <div className="flex flex-col items-center justify-center -space-y-1">
+                          <button
+                            type="button"
+                            onClick={() => handleMoveUp(idx)}
+                            disabled={idx === 0 || isReordering}
+                            className={`p-1 rounded text-charcoal-500 dark:text-charcoal-400 hover:text-blueprint-600 dark:hover:text-blueprint-400 hover:bg-parchment-200 dark:hover:bg-charcoal-800 transition-colors ${
+                              idx === 0 ? 'opacity-20 cursor-not-allowed' : 'cursor-pointer'
+                            }`}
+                            title="Move project up (Earlier in portfolio)"
+                          >
+                            <ChevronUp className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleMoveDown(idx)}
+                            disabled={idx === projects.length - 1 || isReordering}
+                            className={`p-1 rounded text-charcoal-500 dark:text-charcoal-400 hover:text-blueprint-600 dark:hover:text-blueprint-400 hover:bg-parchment-200 dark:hover:bg-charcoal-800 transition-colors ${
+                              idx === projects.length - 1 ? 'opacity-20 cursor-not-allowed' : 'cursor-pointer'
+                            }`}
+                            title="Move project down (Later in portfolio)"
+                          >
+                            <ChevronDown className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+
+                        {/* Sheet Number Plate / Drag Handle */}
+                        <div
+                          className="w-10 h-10 rounded-[2px] bg-parchment-200 dark:bg-charcoal-800 border border-charcoal-900/20 dark:border-white/10 flex items-center justify-center font-mono font-bold text-xs text-blueprint-600 dark:text-blueprint-400 shrink-0 cursor-grab active:cursor-grabbing select-none"
+                          title="Drag card to reorder position"
+                        >
+                          #{String(idx + 1).padStart(2, '0')}
+                        </div>
                       </div>
 
                       <div>
@@ -673,17 +817,32 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-charcoal-700 dark:text-charcoal-300 mb-1 font-semibold">
-                    Tech Stack Tags (comma separated)
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="TypeScript, Render, Go, PostgreSQL, WebSockets"
-                    value={tagsInput}
-                    onChange={(e) => setTagsInput(e.target.value)}
-                    className="w-full px-3 py-2 bg-parchment-100 dark:bg-charcoal-800 border border-charcoal-900/30 dark:border-white/15 rounded-[2px] text-charcoal-900 dark:text-white focus:outline-none focus:border-blueprint-500 shadow-paper-sm"
-                  />
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="sm:col-span-2">
+                    <label className="block text-charcoal-700 dark:text-charcoal-300 mb-1 font-semibold">
+                      Tech Stack Tags (comma separated)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="TypeScript, Render, Go, PostgreSQL, WebSockets"
+                      value={tagsInput}
+                      onChange={(e) => setTagsInput(e.target.value)}
+                      className="w-full px-3 py-2 bg-parchment-100 dark:bg-charcoal-800 border border-charcoal-900/30 dark:border-white/15 rounded-[2px] text-charcoal-900 dark:text-white focus:outline-none focus:border-blueprint-500 shadow-paper-sm"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-charcoal-700 dark:text-charcoal-300 mb-1 font-semibold">
+                      Sequence / Order Rank
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={formData.order ?? (editingProject ? 1 : projects.length + 1)}
+                      onChange={(e) => setFormData({ ...formData, order: parseInt(e.target.value) || 1 })}
+                      className="w-full px-3 py-2 bg-parchment-100 dark:bg-charcoal-800 border border-charcoal-900/30 dark:border-white/15 rounded-[2px] text-charcoal-900 dark:text-white focus:outline-none focus:border-blueprint-500 shadow-paper-sm font-mono text-xs"
+                    />
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2 pt-2">
